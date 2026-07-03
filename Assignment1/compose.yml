@@ -1,0 +1,24 @@
+services:
+  redis:
+    image: redis:8.8.0-alpine         # เลือกใช้ Image ของ Redis
+    container_name: redis             # ชื่อตัวคอนเทนเนอร์
+    restart: unless-stopped           # เปิดตัวเองใหม่ตลอดเวลาหากระบบล่ม
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis-data:/data              # เชื่อมต่อพื้นที่เก็บข้อมูลจำลอง เพื่อไม่ให้ข้อมูลหายเมื่อคอนเทนเนอร์ถูกปิดหรือลบ
+
+    command: >                        # บันทึกข้อมูลลงฮาร์ดดิสก์เรื่อย ๆ กันข้อมูลสูญหาย
+      redis-server
+      --appendonly yes               
+
+    healthcheck:                      # ระบบคอยตรวจสอบตัวเอง
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:                              # ประกาศพื้นที่สร้าง Volume ชื่อ redis-data บนระบบของ Docker
+  redis-data:
