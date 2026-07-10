@@ -3,22 +3,32 @@ services:
     image: redis:8.8.0-alpine         # เลือกใช้ Image ของ Redis
     container_name: redis             # ชื่อตัวคอนเทนเนอร์
     restart: unless-stopped           # เปิดตัวเองใหม่ตลอดเวลาหากระบบล่ม
-
     ports:
       - "6379:6379"
-
     volumes:
       - redis-data:/data              # เชื่อมต่อพื้นที่เก็บข้อมูลจำลอง เพื่อไม่ให้ข้อมูลหายเมื่อคอนเทนเนอร์ถูกปิดหรือลบ
-
     command: >                        # บันทึกข้อมูลลงฮาร์ดดิสก์เรื่อย ๆ กันข้อมูลสูญหาย
       redis-server
       --appendonly yes               
-
     healthcheck:                      # ระบบคอยตรวจสอบตัวเอง
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  postgres:                           # docker exec -it postgres_db psql -U admin -d my_database
+    image: postgres:15-alpine         # Image ของ PostgreSQL เวอร์ชัน 15
+    container_name: postgres_db       # ชื่อคอนเทนเนอร์
+    restart: unless-stopped
+    environment:                      # ตั้งค่า Username, Password และชื่อ Database เริ่มต้น
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=secretpassword
+      - POSTGRES_DB=my_database
+    ports:
+      - "5432:5432"                   # พอร์ตมาตรฐานของ PostgreSQL
+    volumes:
+      - postgres-data:/var/lib/postgresql/data  # เก็บข้อมูลจำลองไว้เพื่อไม่ให้ข้อมูลหาย                      
+
 volumes:                              # ประกาศพื้นที่สร้าง Volume ชื่อ redis-data บนระบบของ Docker
   redis-data:
+  postgres-data:
