@@ -3,7 +3,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # กำหนดตัวแปรและประเภทข้อมูล (Type Hinting)
-    DATABASE_URL: str
     API_KEY: str
     APP_NAME: str = "Eco App"
     APP_ENV: str = "development"
