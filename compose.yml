@@ -25,7 +25,7 @@ services:
       - POSTGRES_PASSWORD=secretpassword
       - POSTGRES_DB=my_database
     ports:
-      - "5432:5432"                   # พอร์ตมาตรฐานของ PostgreSQL
+      - "5433:5432"                   # พอร์ต PostgreSQL บนโฮสต์ เพื่อหลีกเลี่ยงการชนกับ postgres ท้องถิ่น
     volumes:
       - postgres-data:/var/lib/postgresql/data  # เก็บข้อมูลจำลองไว้เพื่อไม่ให้ข้อมูลหาย                      
 
