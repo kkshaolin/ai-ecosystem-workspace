@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Script ทดสอบ PostgreSQL CRUD operations
 """
 import asyncio
 import sys
+import os
 from pathlib import Path
 
 # เพิ่ม path ของ backend

@@ -1,3 +1,4 @@
 /label_studio_data/
 backend/.venv
 backend/.env
+.venv

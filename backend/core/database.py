@@ -2,13 +2,14 @@
 Database connection module
 สร้าง engine และ session สำหรับเชื่อมต่อ PostgreSQL
 """
+from typing import AsyncIterator
+
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
-from collections.abc import AsyncIterator
 from core.config import settings
 
 

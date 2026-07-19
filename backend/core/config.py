@@ -1,5 +1,8 @@
+from pathlib import Path
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
     # กำหนดตัวแปรและประเภทข้อมูล (Type Hinting)
@@ -16,14 +19,14 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
     
     # ค่าเชื่อมต่อ Label Studio
-    LABEL_STUDIO_API_KEY: str = ""
+    LABEL_STUDIO_API_KEY: str 
     LABEL_STUDIO_URL: str = "http://localhost:8080"
 
     # ตั้งค่าคอนฟิกเพื่อเชื่อมโยงกับไฟล์ .env
     model_config = SettingsConfigDict(
-        env_file=".env",              # ระบุตำแหน่งไฟล์ .env
-        env_file_encoding="utf-8",    # ระบุการถอดรหัสไฟล์
-        extra="ignore"                # ถ้าใน .env มีตัวแปรอื่นที่ไม่ได้กำหนดไว้ในนี้ ให้ข้ามไป (ไม่ฟ้อง Error)
+        env_file=BASE_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
     )
 
 # เรียกใช้งาน
