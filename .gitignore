@@ -2,3 +2,4 @@
 backend/.venv
 backend/.env
 mc.exe
+logs
