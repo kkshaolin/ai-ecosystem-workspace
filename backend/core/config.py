@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     LABEL_STUDIO_API_KEY: str 
     LABEL_STUDIO_URL: str = "http://localhost:8080"
 
+    jwt_secret_key: str
+    jwt_algorithm: str
+    access_token_expire_minutes: int
+
     # ตั้งค่าคอนฟิกเพื่อเชื่อมโยงกับไฟล์ .env
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
