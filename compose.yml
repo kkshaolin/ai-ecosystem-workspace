@@ -1,3 +1,5 @@
+# docker compose up -d
+# docker compose down
 services:
   redis:                              # ตั้งชื่อ Service
     image: redis:8.8.0-alpine         # เลือกใช้ Image ของ Redis
@@ -46,7 +48,7 @@ services:
     ports:
       - "8080:8080"                   # เข้าใช้งานผ่าน http://localhost:8080
     volumes:
-      - ./label_studio_data:/label-studio/data # ทำ Label
+      - ./storage/data/label_studio_data:/label-studio/data # ทำ Label
     environment:
       - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
       - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/data/images

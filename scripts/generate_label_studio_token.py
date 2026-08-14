@@ -7,7 +7,6 @@ This script will:
 """
 import urllib.request
 import json
-import base64
 import sys
 
 LS_URL = "http://localhost:8080"
@@ -36,7 +35,7 @@ def api_call(method, endpoint, data=None, token=None):
         error_body = e.read().decode()
         try:
             error_data = json.loads(error_body)
-        except:
+        except Exception:
             error_data = error_body
         return None, (e.code, error_data)
     except Exception as e:
@@ -88,10 +87,10 @@ def main():
     auth_token = get_auth_token(ADMIN_USER, ADMIN_PASSWORD)
     if not auth_token:
         print("\n[!] Could not login with admin credentials")
-        print(f"[*] Try manual steps:")
-        print(f"    1. Go to http://localhost:8080/user/account")
-        print(f"    2. Create/copy your API token")
-        print(f"    3. Set LABEL_STUDIO_API_KEY in backend/.env")
+        print("[*] Try manual steps:")
+        print("    1. Go to http://localhost:8080/user/account")
+        print("    2. Create/copy your API token")
+        print("    3. Set LABEL_STUDIO_API_KEY in backend/.env")
         sys.exit(1)
     
     api_token = get_api_token(auth_token)
@@ -102,7 +101,7 @@ def main():
     print("\n" + "=" * 60)
     print("SUCCESS!")
     print("=" * 60)
-    print(f"\nAdd this to backend/.env:")
+    print("\nAdd this to backend/.env:")
     print(f"  LABEL_STUDIO_API_KEY=\"{api_token}\"")
     print("\nOr replace existing LABEL_STUDIO_API_KEY value with:")
     print(f"  {api_token}")

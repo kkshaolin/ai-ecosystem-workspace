@@ -2,7 +2,7 @@ import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.logger import get_logger
+from backend.src.utils.logger import get_logger
 
 # สร้าง Logger สำหรับแต่ละโมดูล
 app_logger = get_logger("main_app")
