@@ -11,7 +11,54 @@
 ## โครงสร้างภายในโฟลเดอร์ Backend
 
 ```text
-backend/
+backend/backend/
+├── alembic/                  # ระบบจัดการ Database Schema Migration (Alembic)
+│   ├── env.py                # ไฟล์ตั้งค่าการเชื่อมต่อ Async SQLAlchemy ของ Alembic
+│   ├── script.py.mako        # Migration Script Template
+│   └── versions/             # ไฟล์ประวัติบันทึกการเปลี่ยนแปลงตารางใน PostgreSQL
+│       └── 548341a904e8_create_initial_tables.py
+│
+├── src/                      # Source Code หลักของ Backend
+│   ├── main.py               # จุดเริ่มต้นแอป FastAPI, CORS Middleware และ Health Check
+│   │
+│   ├── api/                  # Controllers, Routers และ Data Schemas
+│   │   ├── auth/             # ระบบลงทะเบียน, Login (JWT) (/api/auth)
+│   │   │   ├── controller.py
+│   │   │   ├── model.py
+│   │   │   ├── repository.py
+│   │   │   ├── router.py
+│   │   │   ├── schema.py
+│   │   │   └── service.py
+│   │   ├── users/            # ระบบจัดการผู้ใช้งานแบบ CRUD (/api/users)
+│   │   │   ├── controller.py
+│   │   │   ├── router.py
+│   │   │   └── schema.py
+│   │   └── storage/          # ระบบอัปโหลดไฟล์เข้า MinIO (/api/storage)
+│   │       └── router.py
+│   │
+│   ├── core/                 # ไฟล์ตั้งค่าและคอนฟิกระบบ
+│   │   ├── config.py         # อ่านค่าตัวแปรสภาพแวดล้อมจากไฟล์ .env ด้วย Pydantic Settings
+│   │   └── worker_settings.py # ค่าคอนฟิกสำหรับ ARQ Redis Worker
+│   │
+│   ├── db/                   # การเชื่อมต่อฐานข้อมูล
+│   │   └── database.py       # การสร้าง Async Engine, SessionLocal และ Base Classes
+│   │
+│   ├── models/               # SQLAlchemy Database Models
+│   │   └── student.py        # Student Table Model
+│   │
+│   ├── services/             # Business Logic & Service Helpers
+│   │   └── storage.py        # MinIO Storage Service สำหรับอัปโหลด/ดาวน์โหลดไฟล์
+│   │
+│   └── utils/                # ฟังก์ชันช่วยเหลือ
+│       └── logger.py         # Custom Singleton Logger (Console & Rotating File Logs)
+│
+├── tests/                    # Unit Tests & Integration Tests
+│   └── README.md
+│
+├── alembic.ini               # ไฟล์ตั้งค่าคำสั่ง Alembic
+├── pyproject.toml            # Python Dependencies & Project Metadata (uv)
+├── .env                      # ไฟล์เก็บตัวแปรสภาพแวดล้อม (Environment Variables)
+└── README.md                 # Backend Service Documentation
 ├── alembic/                  # ระบบจัดการ Database Schema Migration (Alembic)
 │   ├── versions/             # ไฟล์ประวัติบันทึกการเปลี่ยนแปลงตารางใน Postgres
 │   └── env.py                # ไฟล์ตั้งค่าการเชื่อมต่อ Async SQLAlchemy ของ Alembic
