@@ -23,6 +23,11 @@
             - `router.py` : endpoints สำหรับ upload/download
             - เรียก `services/storage.py` เพื่อจัดการ MinIO interaction
 
+        - `training/` — API สำหรับการสั่งงานเทรนโมเดล (Machine Learning)
+            - `controller.py` : รับ request สร้าง job_id (สามารถตั้งเวลา scheduled_time)
+            - `service.py` : เชื่อมต่อ ARQ Redis เพื่อดึงสถานะหรือ enqueue `train_model` job
+            - `schema.py` : โครงสร้าง Request/Response เช่น `TrainingRequest`
+
 		- `users/` — API สำหรับจัดการผู้ใช้งาน (CRUD, profile)
 			- รูปแบบไฟล์เหมือน `auth/` แต่เน้นการจัดการข้อมูลผู้ใช้
 

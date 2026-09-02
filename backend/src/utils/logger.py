@@ -6,7 +6,11 @@ from pathlib import Path
 
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_LOG_DIR = WORKSPACE_ROOT / "storage" / "logs"
+DEFAULT_LOG_DIR = Path(os.environ.get("LOG_DIR", str(WORKSPACE_ROOT / "storage" / "logs")))
+if not DEFAULT_LOG_DIR.exists() and os.environ.get("LOG_DIR") is None:
+    # Fallback to /app/logs if inside Docker
+    if Path("/app/logs").exists() or Path("/app").exists():
+        DEFAULT_LOG_DIR = Path("/app/logs")
 
 
 class CustomLogger:

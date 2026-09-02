@@ -2,46 +2,6 @@
 
 รีโพสิทอรีนี้เป็นโครงสร้างระบบ **AI Engineering Ecosystem** แบบครบวงจร พัฒนาขึ้นสำหรับการทำงานจริงในระดับต่อยอดรองรับระบบ AI (เช่น Computer Vision, LLM/RAG, หรือ Predictive Analytics) โดยแบ่งสัดส่วนการทำงานอย่างเป็นโมดูล (Modular Architecture) ใช้งานง่าย ปลอดภัย และพร้อมสำหรับการขยายระบบในอนาคต
 
-
-##  ภาพรวมสถาปัตยกรรมระบบ (System Architecture)
-
-ระบบประกอบด้วย 5 บริการหลักที่ทำงานร่วมกันอย่างสมบูรณ์แบบ:
-
-```text
-                                  +-----------------------+
-                                  |   Frontend Client /   |
-                                  |   External App / User |
-                                  +-----------+-----------+
-                                              |
-                                              v
-                                  +-----------------------+
-                                  |   FastAPI Backend     |
-                                  |   (Port 8000)         |
-                                  +-----+-----+-----+-----+
-                                        |     |     |
-               +------------------------+     |     +-------------------------+
-               |                              |                               |
-               v                              v                               v
-+-------------------------------+  +--------------------+  +-------------------------------+
-|  PostgreSQL Database          |  |  Redis Broker      |  |  MinIO Object Storage         |
-|  (Port 5433 -> 5432)          |  |  (Port 6379)       |  |  (Port 9000 API, 9001 Web)   |
-|  - Auth & User Data           |  +---------+----------+  |  - Dataset Files              |
-|  - Application Metadata       |            |             |  - Trained Model Artifacts    |
-+-------------------------------+            v             +-------------------------------+
-                                   +--------------------+
-                                   |  ARQ Background    |
-                                   |  Worker Service    |
-                                   |  - Heavy ML Tasks  |
-                                   |  - File Ingestion  |
-                                   +--------------------+
-
-                                  +-----------------------+
-                                  |  Label Studio         |
-                                  |  (Port 8080)          |
-                                  |  - Data Annotation    |
-                                  +-----------------------+
-```
-
 ##  โครงสร้างโฟลเดอร์และไฟล์สำคัญ (Directory Structure)
 
 ```text
@@ -55,7 +15,8 @@ ai-ecosystem-workspace/
 │   │   ├── api/              # API Controllers, Routers & Schemas
 │   │   │   ├── auth/         # ระบบยืนยันตัวตน (Authentication & JWT Tokens)
 │   │   │   ├── users/        # ระบบจัดการผู้ใช้งาน (User Management CRUD)
-│   │   │   └── storage/      # ระบบอัปโหลดและจัดการไฟล์ Dataset บน MinIO
+│   │   │   ├── storage/      # ระบบอัปโหลดและจัดการไฟล์ Dataset บน MinIO
+│   │   │   └── training/     # ระบบจัดการการเทรนโมเดล (Enqueue Job, Check Status)
 │   │   │   
 │   │   ├── core/             # ไฟล์ตั้งค่าส่วนกลาง (Configuration)
 │   │   │
@@ -94,7 +55,8 @@ ai-ecosystem-workspace/
 │   └── README.md
 │
 ├── workers/                  # บริการ Worker ทำงานเบื้องหลัง (Background Worker)
-│    ├── worker.py             # ARQ Worker Runner สำหรับประมวลผลงาน AI/ML
+│    ├── worker.py             # ARQ Worker Runner สำหรับประมวลผลงาน AI/ML ทั่วไป
+│    ├── training_worker.py    # ARQ Worker สำหรับรันงานเทรนโมเดลด้วย PyTorch & GPU
 │    └── README.md
 │
 ├── compose.yml               # การตั้งค่า Docker Compose สำหรับคอนเทนเนอร์ทั้งหมด
@@ -174,6 +136,10 @@ uv run arq workers.worker.WorkerSettings
 ###  Storage & Dataset Management (`/api/storage`)
 - `POST /api/storage/upload` : อัปโหลดไฟล์ Dataset เข้า MinIO และส่ง Job เข้า ARQ Worker
 - `GET /api/storage/files` : ดึงรายการไฟล์ทั้งหมดใน MinIO ของผู้ใช้งานปัจจุบัน
+
+###  Model Training (`/api/training`)
+- `POST /api/training/add_train_queue_time` : สั่งเริ่มเทรนโมเดล (เพิ่ม Job เข้าคิว ARQ สำหรับ Training Worker)
+- `GET /api/training/job_status/{job_id}` : ตรวจสอบสถานะการเทรนของโมเดล
 
 ---
 

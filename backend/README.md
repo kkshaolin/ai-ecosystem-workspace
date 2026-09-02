@@ -33,8 +33,12 @@ backend/backend/
 │   │   │   ├── controller.py
 │   │   │   ├── router.py
 │   │   │   └── schema.py
-│   │   └── storage/          # ระบบอัปโหลดไฟล์เข้า MinIO (/api/storage)
-│   │       └── router.py
+│   │   ├── storage/          # ระบบอัปโหลดไฟล์เข้า MinIO (/api/storage)
+│   │   │   └── router.py
+│   │   └── training/         # ระบบสั่งเทรนโมเดลและจัดการคิว (/api/training)
+│   │       ├── controller.py
+│   │       ├── schema.py
+│   │       └── service.py
 │   │
 │   ├── core/                 # ไฟล์ตั้งค่าและคอนฟิกระบบ
 │   │   ├── config.py         # อ่านค่าตัวแปรสภาพแวดล้อมจากไฟล์ .env ด้วย Pydantic Settings
@@ -66,7 +70,8 @@ backend/backend/
 ├── api/                      # Controllers, Routers และ Data Schemas
 │   ├── auth/                 # ระบบลงทะเบียน, Login (JWT), และดึงโปรไฟล์ผู้ใช้ (/api/auth)
 │   ├── users/                # ระบบจัดการผู้ใช้งานแบบ CRUD (/api/users)
-│   └── storage/              # ระบบอัปโหลดไฟล์เข้า MinIO และสั่งงาน Worker (/api/storage)
+│   ├── storage/              # ระบบอัปโหลดไฟล์เข้า MinIO และสั่งงาน Worker (/api/storage)
+│   └── training/             # ระบบสั่งเทรนโมเดล (เพิ่มคิว ARQ) และตรวจสอบสถานะ (/api/training)
 │
 ├── core/                     # ไฟล์ตั้งค่าและคอนฟิกระบบ
 │   ├── config.py             # การอ่านค่าตัวแปรสภาพแวดล้อมจากไฟล์ .env

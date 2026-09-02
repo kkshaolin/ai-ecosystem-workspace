@@ -1,4 +1,5 @@
 # docker compose up -d
+# docker compose up -d --build  
 # docker compose down
 services:
   redis:                              # ตั้งชื่อ Service
@@ -22,6 +23,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - ai-network
 
   postgres:                           # docker exec -it postgres_db psql -U admin -d my_database
     image: postgres:15-alpine         # Image ของ PostgreSQL เวอร์ชัน 15
@@ -40,6 +43,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"                 
+    networks:
+      - ai-network
 
   label-studio:
     image: heartexlabs/label-studio:latest
@@ -57,6 +62,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - ai-network
 
   minio:                              
     image: minio/minio:latest
@@ -76,8 +83,84 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - ai-network
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fastapi_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://admin:secretpassword@postgres:5432/my_database
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password123
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:8080"]
+    volumes:
+      - ./backend/src:/app/src
+      - ./storage/logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - ai-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-volumes:                              # ประกาศพื้นที่สร้าง Volume เพื่อให้ Services ด้านบนเรียกใช้ได้
+  training-worker:
+    build:
+      context: ./workers
+      dockerfile: Dockerfile
+    container_name: training_worker
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password123
+      - STORAGE_PATH=/app/storage
+    volumes:
+      - ./storage:/app/storage
+      - ./workers:/app/workers
+    depends_on:
+      - redis
+      - minio
+    networks:
+      - ai-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:         # Volumes - พื้นที่เก็บข้อมูลถาวร           # พื้นที่เพื่อให้ Services ด้านบนเรียกใช้ได้
   minio_data:
   redis-data:
   postgres-data:
+
+networks:         # Networks - เครือข่ายภายใน
+  ai-network:
+    driver: bridge

@@ -2,16 +2,18 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Add backend directory to Python path for imports
-backend_path = Path(__file__).resolve().parent.parent / "backend"
-if str(backend_path) not in sys.path:
-    sys.path.insert(0, str(backend_path))
+import os
+import logging
+from arq.connections import RedisSettings
 
-from arq.connections import RedisSettings  # noqa: E402
-from core.config import settings  # noqa: E402
-from utils.logger import get_logger  # noqa: E402
+# ตั้งค่า Logging แบบง่ายสำหรับ Worker โดยเฉพาะ
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | worker | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("worker_service")
 
-logger = get_logger("worker_service")
 
 
 async def startup(ctx):
@@ -38,11 +40,13 @@ async def minio_file_processor_task(ctx, object_name: str) -> dict:
     return {"object_name": object_name, "status": "indexed"}
 
 
+from training_worker import train_model
+
 class WorkerSettings:
-    functions = [process_data_task, minio_file_processor_task]
+    functions = [process_data_task, minio_file_processor_task, train_model]
     on_startup = startup
     on_shutdown = shutdown
-    redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
+    redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", "redis://redis:6379"))
     max_jobs = 10
     poll_delay = 0.5
 
