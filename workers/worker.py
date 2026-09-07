@@ -40,55 +40,11 @@ async def minio_file_processor_task(ctx, object_name: str) -> dict:
     return {"object_name": object_name, "status": "indexed"}
 
 
-import mlflow.pyfunc
+# --- Inference logic moved to inference_worker.py ---
 
-# Cache for loaded models
-model_cache = {}
-
-async def inference_task(ctx, model_uri: str, input_data: list) -> dict:
-    """Inference task that loads a model from MLflow and makes predictions."""
-    logger.info(f"Starting inference using model: {model_uri}")
-    
-    # Check if model is already loaded in cache
-    if model_uri not in model_cache:
-        logger.info("Model not in cache, loading from MLflow...")
-        try:
-            # Set MLflow tracking URI just in case
-            import os
-            mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"))
-            # For CPU/Async context, it's safe to load here or use a thread pool.
-            # We'll load directly.
-            model = mlflow.pyfunc.load_model(model_uri)
-            model_cache[model_uri] = model
-            logger.info("Model loaded successfully.")
-        except Exception as e:
-            logger.error(f"Failed to load model: {e}")
-            return {"status": "error", "error": str(e)}
-    
-    model = model_cache[model_uri]
-    
-    try:
-        # Predict
-        predictions = model.predict(input_data)
-        
-        # Convert predictions to a format that can be serialized
-        if hasattr(predictions, "tolist"):
-            predictions = predictions.tolist()
-            
-        return {
-            "status": "success",
-            "model_uri": model_uri,
-            "predictions": predictions
-        }
-    except Exception as e:
-        logger.error(f"Prediction failed: {e}")
-        return {"status": "error", "error": str(e)}
-
-
-from training_worker import train_model
 
 class WorkerSettings:
-    functions = [process_data_task, minio_file_processor_task, train_model, inference_task]
+    functions = [process_data_task, minio_file_processor_task]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", "redis://redis:6379"))

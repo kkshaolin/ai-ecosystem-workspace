@@ -213,6 +213,12 @@ async def train_model(ctx, job_data: dict):
         output_dir = MODELS_DIR / job_id
         output_dir.mkdir(parents=True, exist_ok=True)
         
+        eval_dataset = None
+        if "validation" in tokenized_dataset:
+            eval_dataset = tokenized_dataset["validation"]
+        elif "test" in tokenized_dataset:
+            eval_dataset = tokenized_dataset["test"]
+
         training_args = TrainingArguments(
             output_dir=str(output_dir),
             num_train_epochs=epochs,
@@ -222,7 +228,7 @@ async def train_model(ctx, job_data: dict):
             logging_dir=str(output_dir / "logs"),
             logging_steps=10,
             save_strategy="epoch",
-            evaluation_strategy="no",
+            evaluation_strategy="epoch" if eval_dataset else "no",
             report_to="none",
             max_steps=10,  # เร่งให้เทรนเสร็จไวเพื่อดูผลลัพธ์
             fp16=False,
@@ -234,7 +240,8 @@ async def train_model(ctx, job_data: dict):
         # Step 6: Train
         logger.info("Starting training...")
         mlflow.set_experiment(dataset_name)
-        with mlflow.start_run(run_name=job_id):
+        with mlflow.start_run(run_name=job_id) as run:
+            run_id = run.info.run_id
             mlflow.log_params({
                 "model_name": model_name,
                 "epochs": epochs,
@@ -246,6 +253,7 @@ async def train_model(ctx, job_data: dict):
                 model=model,
                 args=training_args,
                 train_dataset=tokenized_dataset["train"],
+                eval_dataset=eval_dataset,
                 tokenizer=tokenizer,
                 data_collator=data_collator,
             )
@@ -255,6 +263,12 @@ async def train_model(ctx, job_data: dict):
                 pass
             train_result = trainer.train()
             mlflow.log_metric("train_loss", train_result.training_loss)
+            
+            if eval_dataset:
+                logger.info("Evaluating model...")
+                eval_result = trainer.evaluate()
+                for key, value in eval_result.items():
+                    mlflow.log_metric(f"eval_{key}" if not key.startswith("eval_") else key, value)
             
             # Step 7: Save Model
             logger.info("Saving model...")
@@ -297,7 +311,11 @@ async def train_model(ctx, job_data: dict):
                 artifacts={"model_path": str(final_model_dir)}
             )
             
-            # Step 8: Upload Model to MinIO
+            # Create Model URI for inference
+            model_uri = f"runs:/{run_id}/model"
+            logger.info(f"MLflow Model URI: {model_uri}")
+            
+            # Step 8: Upload Model to MinIO (Legacy direct upload, MLflow also uploads to MinIO via artifact store)
             logger.info("Uploading model to MinIO...")
             upload_to_minio(minio_client, output_dir, f"models/{job_id}")
             
@@ -315,6 +333,7 @@ async def train_model(ctx, job_data: dict):
             "status": "success",
             "job_id": job_id,
             "model_path": f"models/{job_id}",
+            "model_uri": model_uri,
             "log_path": f"logs/{job_id}.log",
             "train_loss": train_result.training_loss,
             "epochs": epochs
@@ -335,3 +354,12 @@ async def train_model(ctx, job_data: dict):
             "job_id": job_id,
             "error": str(e)
         }
+
+from arq.connections import RedisSettings
+
+class WorkerSettings:
+    functions = [train_model]
+    queue_name = "training_queue"
+    redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", "redis://redis:6379"))
+    max_jobs = 1
+    poll_delay = 0.5

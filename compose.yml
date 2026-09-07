@@ -129,6 +129,7 @@ services:
       context: ./workers
       dockerfile: Dockerfile
     container_name: training_worker
+    command: ["python", "-m", "arq", "training_worker.WorkerSettings"]
     restart: unless-stopped
     environment:
       - REDIS_URL=redis://redis:6379
@@ -166,6 +167,7 @@ services:
       context: ./workers
       dockerfile: Dockerfile
     container_name: inference_worker
+    command: ["python", "-m", "arq", "inference_worker.WorkerSettings"]
     restart: unless-stopped
     environment:
       - REDIS_URL=redis://redis:6379

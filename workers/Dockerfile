@@ -28,8 +28,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 
 # คัดลอก Source Code
-COPY worker.py ./
-COPY training_worker.py ./
+COPY *.py ./
 
 # สร้างโฟลเดอร์ที่จำเป็น
 RUN mkdir -p /app/storage/data \

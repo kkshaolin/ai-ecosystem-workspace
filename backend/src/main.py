@@ -198,7 +198,8 @@ async def add_train_queue(request_data: TrainingRequest, request: Request):
             'train_model',
             job_data,
             _job_id=job_id,
-            _defer_until=schedule_time
+            _defer_until=schedule_time,
+            _queue_name="training_queue"
         )
         logger.info(f"Scheduled job {job_id} at {schedule_time}")
         return {
@@ -212,7 +213,8 @@ async def add_train_queue(request_data: TrainingRequest, request: Request):
         job = await redis_pool.enqueue_job(
             'train_model',
             job_data,
-            _job_id=job_id
+            _job_id=job_id,
+            _queue_name="training_queue"
         )
         logger.info(f"Enqueued job {job_id}")
         return {
@@ -225,7 +227,14 @@ async def add_train_queue(request_data: TrainingRequest, request: Request):
 async def get_job_status(job_id: str, request: Request):
     """ตรวจสอบสถานะ job"""
     redis_pool = request.app.state.redis_pool
-    job = Job(job_id, redis_pool)
+    
+    queue_name = "arq:queue"
+    if job_id.startswith("train_"):
+        queue_name = "training_queue"
+    elif job_id.startswith("infer_"):
+        queue_name = "inference_queue"
+        
+    job = Job(job_id, redis_pool, _queue_name=queue_name)
     status = await job.status()
     if status.value != "not_found":
         info = await job.info()
@@ -237,41 +246,8 @@ async def get_job_status(job_id: str, request: Request):
         }
     raise HTTPException(status_code=404, detail="Job not found")
 
-@app.get("/queue_status")
-async def get_queue_status():
-    """ดูสถานะคิว"""
-    return {
-        "message": "View status using Redis commands directly when using ARQ, or implement arq queue stats."
-    }
-
-class InferenceRequest(BaseModel):
-    model_uri: str
-    input_data: list
-    
-@app.post("/predict", tags=["Inference"])
-async def create_prediction_job(request_data: InferenceRequest, request: Request):
-    """
-    ส่งงานให้ Inference Worker ทำนายผลจาก MLflow model
-    """
-    job_id = f"infer_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    
-    redis_pool = request.app.state.redis_pool
-    
-    # Enqueue inference task
-    job = await redis_pool.enqueue_job(
-        'inference_task',
-        request_data.model_uri,
-        request_data.input_data,
-        _job_id=job_id
-    )
-    
-    logger.info(f"Enqueued inference job {job_id}")
-    return {
-        "status": "queued",
-        "job_id": job_id,
-        "message": "Inference job added to queue. Please check status later.",
-        "check_url": f"/job_status/{job_id}"
-    }
+from api.predict.router import router as predict_router
+app.include_router(predict_router)
 
 if __name__ == "__main__":
     import uvicorn
