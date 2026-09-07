@@ -151,3 +151,4 @@ uv run arq workers.worker.WorkerSettings
 - **MinIO Web Console**: http://localhost:9001
 - **PostgreSQL**: localhost:5433
 - **Redis**: localhost:6379
+- **MLflow UI**:  http://localhost:5000

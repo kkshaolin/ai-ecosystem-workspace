@@ -96,6 +96,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://admin:secretpassword@postgres:5432/my_database
       - REDIS_URL=redis://redis:6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
@@ -131,13 +132,17 @@ services:
     restart: unless-stopped
     environment:
       - REDIS_URL=redis://redis:6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password123
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password123
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
       - STORAGE_PATH=/app/storage
     volumes:
       - ./storage:/app/storage
-      - ./workers:/app/workers
+      - ./workers:/app
     depends_on:
       - redis
       - minio
@@ -155,6 +160,62 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+
+  inference-worker:
+    build:
+      context: ./workers
+      dockerfile: Dockerfile
+    container_name: inference_worker
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password123
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password123
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - STORAGE_PATH=/app/storage
+    volumes:
+      - ./storage:/app/storage
+      - ./workers:/app
+    depends_on:
+      - redis
+      - minio
+      - mlflow
+    networks:
+      - ai-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: mlflow_server
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password123
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://admin:secretpassword@postgres:5432/my_database
+      --default-artifact-root s3://mlflow-artifacts
+      --host 0.0.0.0
+    depends_on:
+      postgres:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - ai-network
 
 volumes:         # Volumes - พื้นที่เก็บข้อมูลถาวร           # พื้นที่เพื่อให้ Services ด้านบนเรียกใช้ได้
   minio_data:

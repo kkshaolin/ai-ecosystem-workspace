@@ -244,6 +244,35 @@ async def get_queue_status():
         "message": "View status using Redis commands directly when using ARQ, or implement arq queue stats."
     }
 
+class InferenceRequest(BaseModel):
+    model_uri: str
+    input_data: list
+    
+@app.post("/predict", tags=["Inference"])
+async def create_prediction_job(request_data: InferenceRequest, request: Request):
+    """
+    ส่งงานให้ Inference Worker ทำนายผลจาก MLflow model
+    """
+    job_id = f"infer_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    redis_pool = request.app.state.redis_pool
+    
+    # Enqueue inference task
+    job = await redis_pool.enqueue_job(
+        'inference_task',
+        request_data.model_uri,
+        request_data.input_data,
+        _job_id=job_id
+    )
+    
+    logger.info(f"Enqueued inference job {job_id}")
+    return {
+        "status": "queued",
+        "job_id": job_id,
+        "message": "Inference job added to queue. Please check status later.",
+        "check_url": f"/job_status/{job_id}"
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=settings.PORT, reload=True)

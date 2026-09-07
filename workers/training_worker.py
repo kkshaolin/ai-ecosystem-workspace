@@ -10,6 +10,7 @@ from minio import Minio
 from minio.error import S3Error
 from datasets import load_dataset, load_from_disk
 import torch
+import mlflow
 from transformers import (
     AutoTokenizer,
     AutoModelForTokenClassification,
@@ -17,6 +18,10 @@ from transformers import (
     Trainer,
     DataCollatorForTokenClassification
 )
+
+# MLflow Tracking Configuration
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 # ตั้งค่า logging
 logging.basicConfig(
@@ -55,9 +60,10 @@ def get_minio_client() -> Minio:
 
 def ensure_bucket_exists(client: Minio):
     """สร้าง bucket ถ้ายังไม่มี"""
-    if not client.bucket_exists(BUCKET_NAME):
-        client.make_bucket(BUCKET_NAME)
-        logger.info(f"Created bucket: {BUCKET_NAME}")
+    for bucket in [BUCKET_NAME, "mlflow-artifacts"]:
+        if not client.bucket_exists(bucket):
+            client.make_bucket(bucket)
+            logger.info(f"Created bucket: {bucket}")
 
 
 def download_dataset_from_minio(client: Minio, dataset_name: str) -> Path:
@@ -220,41 +226,90 @@ async def train_model(ctx, job_data: dict):
             report_to="none",
             max_steps=10,  # เร่งให้เทรนเสร็จไวเพื่อดูผลลัพธ์
             fp16=False,
-            use_cpu=True,  # บังคับใช้ CPU ชั่วคราวเพื่อหลีกเลี่ยงปัญหา CUDA Kernel เข้ากันไม่ได้กับ GPU รุ่นเก่า
+            use_cpu=False,  # ใช้ GPU ตามที่โจทย์ต้องการ
         )
         
         data_collator = DataCollatorForTokenClassification(tokenizer)
         
         # Step 6: Train
         logger.info("Starting training...")
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=tokenized_dataset["train"],
-            tokenizer=tokenizer,
-            data_collator=data_collator,
-        )
-        
-        train_result = trainer.train()
-        
-        # Step 7: Save Model
-        logger.info("Saving model...")
-        trainer.save_model(str(output_dir))
-        tokenizer.save_pretrained(str(output_dir))
-        
-        # Step 8: Upload Model to MinIO
-        logger.info("Uploading model to MinIO...")
-        upload_to_minio(minio_client, output_dir, f"models/{job_id}")
-        
-        # Step 9: Upload Log to MinIO
-        logger.info("Uploading log to MinIO...")
-        upload_to_minio(minio_client, log_file, f"logs")
-        
-        logger.info(f"=== Training Job {job_id} Completed Successfully ===")
-        
-        # ลบ file handler
-        logger.removeHandler(file_handler)
-        file_handler.close()
+        mlflow.set_experiment(dataset_name)
+        with mlflow.start_run(run_name=job_id):
+            mlflow.log_params({
+                "model_name": model_name,
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "dataset_name": dataset_name
+            })
+            
+            trainer = Trainer(
+                model=model,
+                args=training_args,
+                train_dataset=tokenized_dataset["train"],
+                tokenizer=tokenizer,
+                data_collator=data_collator,
+            )
+            
+            from transformers.integrations import MLflowCallback
+            if trainer.pop_callback(MLflowCallback) is not None:
+                pass
+            train_result = trainer.train()
+            mlflow.log_metric("train_loss", train_result.training_loss)
+            
+            # Step 7: Save Model
+            logger.info("Saving model...")
+            final_model_dir = output_dir / "final_model"
+            final_model_dir.mkdir(exist_ok=True)
+            trainer.save_model(str(final_model_dir))
+            tokenizer.save_pretrained(str(final_model_dir))
+            
+            # Use custom pyfunc model to bypass mlflow.transformers bugs with task inference
+            class TokenClassificationPyFunc(mlflow.pyfunc.PythonModel):
+                def load_context(self, context):
+                    from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+                    self.tokenizer = AutoTokenizer.from_pretrained(context.artifacts["model_path"])
+                    self.model = AutoModelForTokenClassification.from_pretrained(context.artifacts["model_path"])
+                    self.pipeline = pipeline("token-classification", model=self.model, tokenizer=self.tokenizer)
+
+                def predict(self, context, model_input):
+                    if hasattr(model_input, "tolist"):
+                        model_input = model_input.tolist()
+                    if isinstance(model_input, dict) and "inputs" in model_input:
+                        model_input = model_input["inputs"]
+                    
+                    preds = self.pipeline(model_input)
+                    
+                    # Convert numpy types to native Python types for JSON serialization
+                    if isinstance(preds, list):
+                        for res in preds:
+                            if isinstance(res, list):
+                                for r in res:
+                                    for k, v in r.items():
+                                        if hasattr(v, "item"): r[k] = v.item()
+                            elif isinstance(res, dict):
+                                for k, v in res.items():
+                                    if hasattr(v, "item"): res[k] = v.item()
+                    return preds
+
+            mlflow.pyfunc.log_model(
+                artifact_path="model",
+                python_model=TokenClassificationPyFunc(),
+                artifacts={"model_path": str(final_model_dir)}
+            )
+            
+            # Step 8: Upload Model to MinIO
+            logger.info("Uploading model to MinIO...")
+            upload_to_minio(minio_client, output_dir, f"models/{job_id}")
+            
+            # Step 9: Upload Log to MinIO
+            logger.info("Uploading log to MinIO...")
+            upload_to_minio(minio_client, log_file, f"logs")
+            
+            logger.info(f"=== Training Job {job_id} Completed Successfully ===")
+            
+            # ลบ file handler
+            logger.removeHandler(file_handler)
+            file_handler.close()
         
         return {
             "status": "success",

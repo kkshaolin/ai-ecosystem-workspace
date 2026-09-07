@@ -1,5 +1,5 @@
-# ใช้ Base Image ของ PyTorch ที่มี CUDA มาแล้ว
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+# ใช้ Base Image Python 3.10 ธรรมดา แล้วโหลด PyTorch ล่าสุดที่มี CUDA 12.4
+FROM python:3.10-slim
 
 # ตั้งค่า environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -15,24 +15,17 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     htop \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # ติดตั้ง Python Dependencies
-# คัดลอก requirements ก่อน (Layer Caching)
 COPY requirements.txt ./
 
-RUN pip install --no-cache-dir \
-    arq \
-    redis \
-    minio \
-    datasets==2.19.1 \
-    transformers==4.40.0 \
-    accelerate \
-    evaluate \
-    scikit-learn \
-    seqeval \
-    huggingface-hub \
-    tokenizers
+# ติดตั้ง PyTorch ใหม่ล่าสุด (CUDA 12.4) รองรับการ์ดจอรุ่นใหม่
+RUN pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124
+RUN pip install --no-cache-dir -r requirements.txt
+
+
 
 # คัดลอก Source Code
 COPY worker.py ./
